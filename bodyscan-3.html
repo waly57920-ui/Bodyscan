@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>BodyScan AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;800&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #020617; --surface: #0f172a; --border: #1e293b;
+    --accent: #22d3ee; --accent2: #0ea5e9; --text: #f1f5f9;
+    --muted: #475569; --dim: #64748b; --green: #22c55e;
+    --orange: #f97316; --red: #ef4444; --yellow: #eab308;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', system-ui, sans-serif; overflow-x: hidden; }
+  body { max-width: 480px; margin: 0 auto; min-height: 100vh; }
+
+  /* VIEWS */
+  .view { display: none; flex-direction: column; min-height: 100vh; padding-bottom: 40px; }
+  .view.active { display: flex; }
+
+  /* HOME */
+  .hero { text-align: center; padding: 48px 24px 32px; }
+  .hero-label { font-size: 10px; letter-spacing: 5px; color: var(--muted); text-transform: uppercase; margin-bottom: 14px; }
+  .hero-title { font-family: 'Bebas Neue', cursive; font-size: clamp(52px, 14vw, 80px); line-height: 0.9; letter-spacing: 2px; margin-bottom: 12px; }
+  .hero-title span { color: var(--accent); }
+  .hero-sub { color: var(--dim); font-size: 13px; max-width: 260px; margin: 0 auto; line-height: 1.5; }
+  .px { padding: 0 20px; }
+
+  /* BUTTONS */
+  .btn-primary { width: 100%; padding: 18px; border-radius: 16px; border: none; background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #0f172a; font-family: 'Bebas Neue', cursive; font-size: 22px; letter-spacing: 2px; cursor: pointer; box-shadow: 0 8px 32px #0ea5e944; margin-bottom: 12px; -webkit-tap-highlight-color: transparent; }
+  .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); box-shadow: none; cursor: not-allowed; }
+  .btn-back { background: none; border: none; color: var(--dim); font-size: 15px; cursor: pointer; padding: 20px 0; display: flex; align-items: center; gap: 6px; font-family: 'DM Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+
+  /* HISTORY CARD */
+  .session-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; cursor: pointer; display: flex; align-items: center; gap: 14px; -webkit-tap-highlight-color: transparent; }
+  .session-card:active { opacity: 0.8; }
+  .session-thumb { width: 44px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid var(--border); flex-shrink: 0; }
+  .session-thumb-placeholder { width: 44px; height: 60px; border-radius: 8px; background: var(--border); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .session-info { flex: 1; }
+  .session-date { font-weight: 700; font-size: 15px; }
+  .session-type { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .session-arrow { color: var(--border); font-size: 20px; }
+  .hist-label { color: var(--muted); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; padding-left: 4px; }
+
+  /* UPLOAD VIEW */
+  .upload-title { font-family: 'Bebas Neue', cursive; font-size: 38px; letter-spacing: 1px; margin-bottom: 6px; }
+  .upload-subtitle { color: var(--accent); font-size: 13px; margin-bottom: 8px; }
+  .upload-hint { color: var(--muted); font-size: 12px; margin-bottom: 24px; }
+
+  .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .photo-slot { display: flex; flex-direction: column; gap: 6px; }
+  .photo-slot-label { text-align: center; color: var(--muted); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+
+  /* THE KEY FIX: real <label> wrapping a visible input for Android */
+  .photo-trigger { position: relative; aspect-ratio: 3/4; border-radius: 14px; overflow: hidden; background: var(--surface); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: border-color 0.2s; }
+  .photo-trigger.has-image { border-color: #22d3ee44; border-style: solid; }
+  .photo-trigger input[type=file] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; /* prevents zoom on some Android */ }
+  .photo-trigger img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .photo-trigger .overlay { position: absolute; inset: 0; background: linear-gradient(to top, #00000099 0%, transparent 60%); pointer-events: none; }
+  .photo-trigger .check { position: absolute; bottom: 8px; right: 8px; background: var(--accent); border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 13px; pointer-events: none; z-index: 2; }
+  .photo-icon { font-size: 32px; pointer-events: none; }
+  .photo-cta { color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; text-align: center; pointer-events: none; line-height: 1.4; }
+
+  /* LOADING */
+  .loading-box { text-align: center; margin-top: 20px; }
+  .loading-text { color: var(--accent); font-size: 13px; }
+  .loading-sub { color: var(--muted); font-size: 11px; margin-top: 6px; }
+  @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+  .blink { animation: blink 1.4s infinite; }
+
+  /* DETAIL VIEW */
+  .sticky-header { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; gap: 12px; }
+  .sticky-title { font-family: 'Bebas Neue', cursive; font-size: 18px; letter-spacing: 1px; }
+  .sticky-date { color: var(--muted); font-size: 11px; }
+  .photos-row { display: flex; gap: 8px; padding: 16px 20px 0; }
+  .photos-row img { flex: 1; height: 160px; object-fit: cover; border-radius: 12px; border: 1px solid var(--border); }
+
+  .cards { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--surface); border-radius: 16px; padding: 18px; border: 1px solid var(--border); }
+  .card-label { color: var(--muted); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+  .card-text { color: var(--text); font-size: 14px; line-height: 1.65; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat-val { font-size: 22px; font-weight: 800; }
+  .stat-sub { color: var(--dim); font-size: 11px; margin-top: 2px; }
+
+  .muscle-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .muscle-item:last-child { border-bottom: none; }
+  .muscle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .muscle-name { font-weight: 600; font-size: 13px; }
+  .muscle-detail { color: var(--dim); font-size: 11px; margin-top: 4px; }
+
+  .chip { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+  .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .score-bar-bg { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 3px; }
+  .score-num { font-family: monospace; font-size: 11px; color: var(--muted); min-width: 24px; }
+
+  .list-item { color: var(--dim); font-size: 12px; padding: 3px 0; }
+  .posture-item { color: var(--dim); font-size: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .posture-item:last-child { border-bottom: none; }
+
+  .card.green-border { border-color: #22c55e33; }
+  .card.red-border { border-color: #ef444433; }
+  .card.accent-border { border-color: #22d3ee33; background: linear-gradient(135deg, #0ea5e908, #22d3ee08); }
+
+  /* PROGRESSION */
+  .verdict { font-family: 'Bebas Neue', cursive; font-size: 30px; letter-spacing: 2px; text-align: center; margin-bottom: 12px; }
+  .score-big-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .score-big-bar { flex: 1; height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; }
+  .score-big-fill { height: 100%; border-radius: 5px; transition: width 1s ease; }
+  .score-big-num { font-family: 'Bebas Neue', cursive; font-size: 28px; min-width: 60px; text-align: right; }
+  .change-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .change-item:last-child { border-bottom: none; }
+  .change-zone { font-weight: 600; font-size: 13px; }
+  .change-detail { color: var(--dim); font-size: 11px; margin-top: 2px; }
+  .reco-item { color: var(--dim); font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .reco-item:last-child { border-bottom: none; }
+
+  .error-box { background: #ef444411; border: 1px solid #ef444433; border-radius: 12px; padding: 16px; color: #fca5a5; font-size: 13px; margin: 20px; }
+</style>
+</head>
+<body>
+
+<!-- HOME VIEW -->
+<div class="view active" id="view-home">
+  <div class="hero">
+    <div class="hero-label">BodyScan AI</div>
+    <h1 class="hero-title">ANALYSE<br/><span>CORPORELLE</span></h1>
+    <p class="hero-sub">IA de niveau expert · Vérité absolue · Zéro complaisance</p>
+  </div>
+  <div class="px">
+    <button class="btn-primary" onclick="showView('upload')">
+      <span id="home-btn-label">🔬 PREMIÈRE ANALYSE</span>
+    </button>
+    <div id="history-section" style="display:none">
+      <div class="hist-label" id="hist-count">Historique</div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD VIEW -->
+<div class="view" id="view-upload">
+  <div class="px" style="padding-top:24px; flex:1">
+    <button class="btn-back" onclick="showView('home')">← Retour</button>
+    <div class="upload-title" id="upload-title">ANALYSE INITIALE</div>
+    <div class="upload-subtitle" id="upload-compare-info" style="display:none"></div>
+    <div class="upload-hint">Appuie sur une zone → choisis une photo ou prends-en une</div>
+
+    <div class="photo-grid">
+      <div class="photo-slot">
+        <label class="photo-trigger" id="slot-front" for="input-front">
+          <input type="file" id="input-front" accept="image/*" capture="environment" onchange="handlePhoto(event,'front')"/>
+          <span class="photo-icon">📸</span>
+          <span class="photo-cta">FACE<br/>Appuie ici</span>
+        </label>
+        <div class="photo-slot-label">Vue de face</div>
+      </div>
+      <div class="photo-slot">
+        <label class="photo-trigger" id="slot-side" for="input-side">
+          <input type="file" id="input-side" accept="image/*" capture="environment" onchange="handlePhoto(event,'side')"/>
+          <span class="photo-icon">📸</span>
+          <span class="photo-cta">PROFIL<br/>Appuie ici</span>
+        </label>
+        <div class="photo-slot-label">Vue de profil</div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btn-analyze" disabled onclick="runAnalysis()">🔬 LANCER L'ANALYSE IA</button>
+    <div class="loading-box" id="loading-box" style="display:none">
+      <div class="loading-text blink">⚡ L'IA analyse ta composition corporelle...</div>
+      <div class="loading-sub">Cela peut prendre 20-40 secondes</div>
+    </div>
+    <div id="upload-error"></div>
+  </div>
+</div>
+
+<!-- DETAIL VIEW -->
+<div class="view" id="view-detail">
+  <div class="sticky-header">
+    <button class="btn-back" style="padding:0" onclick="showView('home')">←</button>
+    <div>
+      <div class="sticky-title" id="detail-title">ANALYSE</div>
+      <div class="sticky-date" id="detail-date"></div>
+    </div>
+  </div>
+  <div class="photos-row" id="detail-photos"></div>
+  <div class="cards" id="detail-cards"></div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let sessions = JSON.parse(localStorage.getItem('bodyscan_sessions') || '[]');
+let pendingFront = null; // { dataUrl }
+let pendingSide  = null;
+
+function saveSessions() {
+  try { localStorage.setItem('bodyscan_sessions', JSON.stringify(sessions)); } catch(e) {}
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  window.scrollTo(0,0);
+  if (name === 'home') refreshHome();
+  if (name === 'upload') refreshUpload();
+}
+
+function refreshHome() {
+  const btn = document.getElementById('home-btn-label');
+  btn.textContent = sessions.length === 0 ? '🔬 PREMIÈRE ANALYSE' : '📸 NOUVELLE SESSION';
+  const sec = document.getElementById('history-section');
+  const list = document.getElementById('history-list');
+  const countEl = document.getElementById('hist-count');
+  if (sessions.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  countEl.textContent = `Historique — ${sessions.length} session${sessions.length>1?'s':''}`;
+  list.innerHTML = '';
+  [...sessions].reverse().forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'session-card';
+    d.onclick = () => showDetail(s);
+    const thumb = s.frontUrl
+      ? `<img class="session-thumb" src="${s.frontUrl}"/>`
+      : `<div class="session-thumb-placeholder">📅</div>`;
+    let badge = '';
+    if (s.isComparison && s.analysis && s.analysis.verdict_global) {
+      const sc = s.analysis.score_progression || 0;
+      const col = sc >= 60 ? '#22c55e' : sc >= 30 ? '#eab308' : '#ef4444';
+      badge = `<div style="margin-top:5px"><span class="chip" style="background:${col}22;color:${col};border:1px solid ${col}44">${s.analysis.verdict_global}</span></div>`;
+    }
+    d.innerHTML = `${thumb}<div class="session-info"><div class="session-date">${formatDate(s.date)}</div><div class="session-type">${s.isComparison ? '📊 Rapport de progression' : '🔬 Analyse initiale'}</div>${badge}</div><span class="session-arrow">›</span>`;
+    list.appendChild(d);
+  });
+}
+
+function refreshUpload() {
+  pendingFront = null; pendingSide = null;
+  resetSlot('front'); resetSlot('side');
+  document.getElementById('btn-analyze').disabled = true;
+  document.getElementById('loading-box').style.display = 'none';
+  document.getElementById('upload-error').innerHTML = '';
+  const titleEl = document.getElementById('upload-title');
+  const infoEl = document.getElementById('upload-compare-info');
+  if (sessions.length > 0) {
+    titleEl.textContent = 'NOUVELLE SESSION';
+    infoEl.style.display = 'block';
+    infoEl.textContent = `📊 Sera comparée au ${formatDate(sessions[sessions.length-1].date)}`;
+  } else {
+    titleEl.textContent = 'ANALYSE INITIALE';
+    infoEl.style.display = 'none';
+  }
+}
+
+// ─── PHOTO HANDLING ───────────────────────────────────────────────────────────
+function handlePhoto(e, type) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const dataUrl = ev.target.result;
+    if (type === 'front') pendingFront = { dataUrl };
+    else pendingSide = { dataUrl };
+    setSlotImage(type, dataUrl);
+    document.getElementById('btn-analyze').disabled = !(pendingFront || pendingSide);
+  };
+  reader.readAsDataURL(file);
+}
+
+function setSlotImage(type, dataUrl) {
+  const slot = document.getElementById('slot-' + type);
+  // Remove placeholder content
+  slot.querySelectorAll('.photo-icon, .photo-cta').forEach(el => el.remove());
+  // Set image if not already there
+  let img = slot.querySelector('img.preview');
+  if (!img) { img = document.createElement('img'); img.className = 'preview'; slot.appendChild(img); }
+  img.src = dataUrl;
+  // Add overlay + check
+  if (!slot.querySelector('.overlay')) {
+    const ov = document.createElement('div'); ov.className = 'overlay'; slot.appendChild(ov);
+    const ck = document.createElement('div'); ck.className = 'check'; ck.textContent = '✓'; slot.appendChild(ck);
+  }
+  slot.classList.add('has-image');
+}
+
+function resetSlot(type) {
+  const slot = document.getElementById('slot-' + type);
+  slot.className = 'photo-trigger';
+  // Clear everything except the input
+  const input = slot.querySelector('input');
+  slot.innerHTML = '';
+  slot.appendChild(input);
+  slot.innerHTML += '<span class="photo-icon">📸</span><span class="photo-cta">' + (type==='front'?'FACE':'PROFIL') + '<br/>Appuie ici</span>';
+  // Reset input value so same file can be re-selected
+  input.value = '';
+}
+
+// ─── ANALYSIS ────────────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `Tu es un coach sportif et analyste corporel expert de niveau olympique. Tu analyses des photos de corps humain avec une précision chirurgicale et une objectivité totale.
+
+RÈGLES ABSOLUES:
+- Tu dis LA VÉRITÉ, même si elle est dure à entendre
+- Tu n'es PAS complaisant, tu es OBJECTIF
+- Chaque analyse est ULTRA-DÉTAILLÉE et STRUCTURÉE
+- Tu utilises un langage technique mais compréhensible
+
+POUR UNE ANALYSE INITIALE, réponds UNIQUEMENT avec ce JSON valide:
+{
+  "resume_global": "string",
+  "morphologie": { "type": "string", "description": "string" },
+  "composition_estimee": { "masse_grasse_pct": number, "masse_musculaire_pct": number, "commentaire": "string" },
+  "groupes_musculaires": [{ "nom": "string", "niveau": "très faible|faible|moyen|bien développé|excellent", "score": number, "detail": "string" }],
+  "points_forts": ["string"],
+  "axes_amelioration": ["string"],
+  "posture": { "note": number, "observations": ["string"] },
+  "conseil_prioritaire": "string"
+}
+
+POUR UN RAPPORT DE PROGRESSION, réponds UNIQUEMENT avec ce JSON valide:
+{
+  "verdict_global": "RÉGRESSION|STAGNATION|LÉGÈRE PROGRESSION|BONNE PROGRESSION|EXCELLENTE PROGRESSION",
+  "honnetete": "string",
+  "changements_detectes": [{ "zone": "string", "evolution": "positif|negatif|neutre", "detail": "string" }],
+  "composition_evolution": { "masse_grasse_evolution": "string", "masse_musculaire_evolution": "string" },
+  "score_progression": number,
+  "ce_qui_a_marche": ["string"],
+  "ce_qui_na_pas_marche": ["string"],
+  "recommandations_ajustements": ["string"],
+  "message_coach": "string"
+}
+
+Réponds UNIQUEMENT avec le JSON valide, aucun texte avant ou après.`;
+
+async function runAnalysis() {
+  const btn = document.getElementById('btn-analyze');
+  const loadBox = document.getElementById('loading-box');
+  const errBox = document.getElementById('upload-error');
+  btn.disabled = true;
+  loadBox.style.display = 'block';
+  errBox.innerHTML = '';
+
+  try {
+    const prev = sessions.length > 0 ? sessions[sessions.length-1] : null;
+    const content = [];
+
+    if (prev) {
+      content.push({ type: 'text', text: 'ANALYSE PRÉCÉDENTE (référence):' });
+      if (prev.frontUrl) content.push({ type: 'image', source: { type: 'base64', media_type: getMime(prev.frontUrl), data: getB64(prev.frontUrl) } });
+      content.push({ type: 'text', text: 'Données précédentes: ' + JSON.stringify(prev.analysis) });
+      content.push({ type: 'text', text: 'NOUVELLES PHOTOS (à comparer):' });
+    } else {
+      content.push({ type: 'text', text: 'Analyse corporelle initiale. Voici mes photos:' });
+    }
+
+    if (pendingFront) {
+      content.push({ type: 'image', source: { type: 'base64', media_type: getMime(pendingFront.dataUrl), data: getB64(pendingFront.dataUrl) } });
+      content.push({ type: 'text', text: '(Vue de face)' });
+    }
+    if (pendingSide) {
+      content.push({ type: 'image', source: { type: 'base64', media_type: getMime(pendingSide.dataUrl), data: getB64(pendingSide.dataUrl) } });
+      content.push({ type: 'text', text: '(Vue de profil)' });
+    }
+
+    content.push({ type: 'text', text: prev ? 'Compare et donne le rapport de progression en JSON.' : 'Donne l\'analyse corporelle ultra-détaillée en JSON.' });
+
+    const resp = await fetch('https://bodyscan.waly57920.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content }]
+      })
+    });
+
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message || 'Erreur API');
+    const raw = (data.content||[]).map(c => c.text||'').join('');
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+
+    const session = {
+      id: Date.now(),
+      date: todayKey(),
+      frontUrl: pendingFront ? pendingFront.dataUrl : null,
+      sideUrl: pendingSide ? pendingSide.dataUrl : null,
+      analysis: parsed,
+      isComparison: !!prev
+    };
+    sessions.push(session);
+    saveSessions();
+    showDetail(session);
+
+  } catch(err) {
+    console.error(err);
+    errBox.innerHTML = `<div class="error-box">❌ Erreur : ${err.message}</div>`;
+    btn.disabled = false;
+  } finally {
+    loadBox.style.display = 'none';
+  }
+}
+
+// ─── DETAIL RENDER ────────────────────────────────────────────────────────────
+function showDetail(session) {
+  const a = session.analysis;
+  document.getElementById('detail-title').textContent = session.isComparison ? 'RAPPORT PROGRESSION' : 'ANALYSE CORPORELLE';
+  document.getElementById('detail-date').textContent = formatDate(session.date);
+
+  // Photos
+  const ph = document.getElementById('detail-photos');
+  ph.innerHTML = '';
+  if (session.frontUrl) { const i = document.createElement('img'); i.src = session.frontUrl; ph.appendChild(i); }
+  if (session.sideUrl)  { const i = document.createElement('img'); i.src = session.sideUrl;  ph.appendChild(i); }
+  if (!session.frontUrl && !session.sideUrl) ph.style.display = 'none';
+  else ph.style.display = 'flex';
+
+  const cards = document.getElementById('detail-cards');
+  cards.innerHTML = '';
+
+  if (!a) { cards.innerHTML = '<div class="error-box">Données manquantes</div>'; showView('detail'); return; }
+
+  if (session.isComparison) renderComparison(cards, a);
+  else renderInitial(cards, a);
+
+  showView('detail');
+}
+
+function renderInitial(cards, a) {
+  // Résumé
+  if (a.resume_global) cards.appendChild(card('VERDICT GLOBAL', `<p class="card-text">${a.resume_global}</p>`));
+
+  // Morpho + Compo
+  const twoCol = document.createElement('div');
+  twoCol.className = 'two-col';
+  if (a.morphologie) {
+    twoCol.appendChild(miniCard('MORPHOTYPE', `<div class="stat-val" style="color:var(--accent);font-size:16px">${a.morphologie.type}</div><div class="stat-sub">${a.morphologie.description}</div>`));
+  }
+  if (a.composition_estimee) {
+    twoCol.appendChild(miniCard('COMPOSITION', `<div style="margin-bottom:6px"><div class="stat-sub">Masse grasse</div><div class="stat-val" style="color:var(--orange)">${a.composition_estimee.masse_grasse_pct}%</div></div><div><div class="stat-sub">Masse musculaire</div><div class="stat-val" style="color:var(--green)">${a.composition_estimee.masse_musculaire_pct}%</div></div>`));
+  }
+  if (twoCol.children.length > 0) cards.appendChild(twoCol);
+
+  // Posture
+  if (a.posture) {
+    let html = `<div style="margin-bottom:10px">${scoreBar(a.posture.note)}</div>`;
+    (a.posture.observations||[]).forEach(o => html += `<div class="posture-item">• ${o}</div>`);
+    cards.appendChild(card('POSTURE', html));
+  }
+
+  // Groupes musculaires
+  if (a.groupes_musculaires && a.groupes_musculaires.length) {
+    const COLS = {"très faible":"#ef4444","faible":"#f97316","moyen":"#eab308","bien développé":"#22c55e","excellent":"#06b6d4"};
+    let html = '';
+    a.groupes_musculaires.forEach(g => {
+      const col = COLS[g.niveau] || '#64748b';
+      html += `<div class="muscle-item"><div class="muscle-row"><span class="muscle-name">${g.nom}</span><span class="chip" style="background:${col}22;color:${col};border:1px solid ${col}44">${g.niveau}</span></div>${scoreBar(g.score)}<div class="muscle-detail">${g.detail}</div></div>`;
+    });
+    cards.appendChild(card('GROUPES MUSCULAIRES', html));
+  }
+
+  // Points forts / axes
+  const twoCol2 = document.createElement('div');
+  twoCol2.className = 'two-col';
+  if (a.points_forts && a.points_forts.length) {
+    let html = a.points_forts.map(p => `<div class="list-item" style="color:#86efac">+ ${p}</div>`).join('');
+    const c = miniCard('💪 POINTS FORTS', html); c.classList.add('green-border'); twoCol2.appendChild(c);
+  }
+  if (a.axes_amelioration && a.axes_amelioration.length) {
+    let html = a.axes_amelioration.map(p => `<div class="list-item" style="color:#fdba74">→ ${p}</div>`).join('');
+    const c = miniCard('⚠️ À TRAVAILLER', html); c.classList.add('red-border'); twoCol2.appendChild(c);
+  }
+  if (twoCol2.children.length > 0) cards.appendChild(twoCol2);
+
+  // Conseil
+  if (a.conseil_prioritaire) {
+    const c = card('⚡ CONSEIL PRIORITAIRE', `<p class="card-text">${a.conseil_prioritaire}</p>`);
+    c.classList.add('accent-border'); cards.appendChild(c);
+  }
+}
+
+function renderComparison(cards, a) {
+  const sc = a.score_progression || 0;
+  const col = sc >= 60 ? '#22c55e' : sc >= 30 ? '#eab308' : '#ef4444';
+
+  // Verdict + score
+  let html = `<div class="verdict" style="color:${col}">${a.verdict_global||''}</div>`;
+  html += `<div class="score-big-wrap"><div class="score-big-bar"><div class="score-big-fill" style="width:${sc}%;background:${col}"></div></div><div class="score-big-num" style="color:${col}">${sc}/100</div></div>`;
+  if (a.honnetete) html += `<p class="card-text" style="margin-top:10px">${a.honnetete}</p>`;
+  cards.appendChild(card('', html));
+
+  // Message coach
+  if (a.message_coach) {
+    const c = card('🎯 MESSAGE DE TON COACH', `<p class="card-text" style="font-style:italic">"${a.message_coach}"</p>`);
+    c.classList.add('accent-border'); cards.appendChild(c);
+  }
+
+  // Changements
+  if (a.changements_detectes && a.changements_detectes.length) {
+    let html = '';
+    a.changements_detectes.forEach(c => {
+      const ico = c.evolution==='positif'?'✅':c.evolution==='negatif'?'❌':'➡️';
+      html += `<div class="change-item"><span style="font-size:18px">${ico}</span><div><div class="change-zone">${c.zone}</div><div class="change-detail">${c.detail}</div></div></div>`;
+    });
+    cards.appendChild(card('CHANGEMENTS DÉTECTÉS', html));
+  }
+
+  // Évolution compo
+  if (a.composition_evolution) {
+    const c2 = document.createElement('div'); c2.className = 'two-col';
+    c2.appendChild(miniCard('MASSE GRASSE', `<div style="color:var(--orange);font-weight:700;font-size:13px">${a.composition_evolution.masse_grasse_evolution}</div>`));
+    c2.appendChild(miniCard('MASSE MUSCULAIRE', `<div style="color:var(--green);font-weight:700;font-size:13px">${a.composition_evolution.masse_musculaire_evolution}</div>`));
+    cards.appendChild(c2);
+  }
+
+  // Ce qui a/n'a pas marché
+  const twoCol = document.createElement('div'); twoCol.className = 'two-col';
+  if (a.ce_qui_a_marche && a.ce_qui_a_marche.length) {
+    let html = a.ce_qui_a_marche.map(p=>`<div class="list-item" style="color:#86efac">✓ ${p}</div>`).join('');
+    const c = miniCard('✅ A MARCHÉ', html); c.classList.add('green-border'); twoCol.appendChild(c);
+  }
+  if (a.ce_qui_na_pas_marche && a.ce_qui_na_pas_marche.length) {
+    let html = a.ce_qui_na_pas_marche.map(p=>`<div class="list-item" style="color:#fca5a5">✗ ${p}</div>`).join('');
+    const c = miniCard("❌ N'A PAS MARCHÉ", html); c.classList.add('red-border'); twoCol.appendChild(c);
+  }
+  if (twoCol.children.length > 0) cards.appendChild(twoCol);
+
+  // Recommandations
+  if (a.recommandations_ajustements && a.recommandations_ajustements.length) {
+    let html = a.recommandations_ajustements.map(r=>`<div class="reco-item">→ ${r}</div>`).join('');
+    cards.appendChild(card('🔧 AJUSTEMENTS RECOMMANDÉS', html));
+  }
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function card(label, innerHTML) {
+  const el = document.createElement('div'); el.className = 'card';
+  if (label) el.innerHTML = `<div class="card-label">${label}</div>` + innerHTML;
+  else el.innerHTML = innerHTML;
+  return el;
+}
+function miniCard(label, innerHTML) {
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<div class="card-label">${label}</div>` + innerHTML;
+  return el;
+}
+function scoreBar(score) {
+  const col = score >= 7 ? '#22c55e' : score >= 5 ? '#eab308' : '#ef4444';
+  return `<div class="score-bar-wrap"><div class="score-bar-bg"><div class="score-bar-fill" style="width:${score*10}%;background:${col}"></div></div><span class="score-num">${score}/10</span></div>`;
+}
+function getB64(dataUrl) { return dataUrl.split(',')[1]; }
+function getMime(dataUrl) { return dataUrl.split(';')[0].split(':')[1] || 'image/jpeg'; }
+function formatDate(d) { return new Date(d).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' }); }
+function todayKey() { return new Date().toISOString().split('T')[0]; }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+refreshHome();
+</script>
+</body>
+</html>
